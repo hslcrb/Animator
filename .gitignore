@@ -1,3 +1,6 @@
 __pycache__/
 *.pyc
 output_test/
+.venv/
+venv/
+
