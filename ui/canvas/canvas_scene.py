@@ -7,6 +7,7 @@ from PySide6.QtWidgets import QGraphicsScene, QGraphicsItem
 from PySide6.QtCore import Qt, QPointF, QRectF, Signal, QObject
 from PySide6.QtGui import QPainter, QColor, QPen
 from ui.canvas.items import ResizableItem, ArtboardItem, RectangleItem, EllipseItem, TextItem, PathItem
+from core.undo_manager import UndoManager, AddItemCommand, RemoveItemCommand, TransformCommand, ReplaceItemCommand
 
 
 class CanvasScene(QGraphicsScene):
@@ -16,8 +17,9 @@ class CanvasScene(QGraphicsScene):
     itemAdded = Signal(object)
     itemRemoved = Signal(object)
 
-    def __init__(self, parent=None):
+    def __init__(self, undo_manager=None, parent=None):
         super().__init__(parent)
+        self.undo_manager = undo_manager or UndoManager()
         self.setSceneRect(-5000, -5000, 10000, 10000)
         self.setBackgroundBrush(QColor("#141417"))
         
@@ -45,6 +47,11 @@ class CanvasScene(QGraphicsScene):
     def item_geometry_changed(self, item):
         self.itemModified.emit(item)
 
+    def record_transform(self, item, old_geom, new_geom):
+        ox, oy, ow, oh, orot = old_geom
+        nx, ny, nw, nh, nrot = new_geom
+        self.undo_manager.push(TransformCommand(item, ox, oy, ow, oh, orot, nx, ny, nw, nh, nrot))
+
     def duplicate_item(self, item: ResizableItem, offset=QPointF(20, 20)):
         """Duplicate an item and add to scene with selection transferred."""
         if not hasattr(item, "duplicate"):
@@ -58,7 +65,20 @@ class CanvasScene(QGraphicsScene):
         new_item.setSelected(True)
         self.itemAdded.emit(new_item)
         self.itemModified.emit(new_item)
+        self.undo_manager.push(AddItemCommand(self, new_item))
         return new_item
+
+    def delete_items(self, items):
+        """Delete items with undo support."""
+        to_del = [it for it in items if isinstance(it, ResizableItem) and not isinstance(it, ArtboardItem)]
+        if not to_del:
+            return
+        for it in to_del:
+            self.removeItem(it)
+            self.itemRemoved.emit(it)
+        self.undo_manager.push(RemoveItemCommand(self, to_del))
+        self.clearSelection()
+        self.update()
 
     def get_ordered_items(self):
         """Get items in layer order (excluding artboard background)."""
@@ -78,6 +98,7 @@ class CanvasScene(QGraphicsScene):
         self.clearSelection()
         path_item.setSelected(True)
         self.itemModified.emit(path_item)
+        self.undo_manager.push(ReplaceItemCommand(self, text_item, path_item))
         return path_item
 
     def make_component(self, item: ResizableItem):

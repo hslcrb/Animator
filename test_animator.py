@@ -70,6 +70,20 @@ def run_tests():
     assert os.path.exists(gif_path) and os.path.getsize(gif_path) > 0
     print(f"[OK] Looping GIF exported ({os.path.getsize(gif_path)} bytes)")
 
+    # 6. Test Undo / Redo
+    init_count = len(scene.items())
+    temp_box = RectangleItem(10, 10, 50, 50, "TempBox")
+    scene.addItem(temp_box)
+    from core.undo_manager import AddItemCommand
+    scene.undo_manager.push(AddItemCommand(scene, temp_box))
+    assert len(scene.items()) == init_count + 1, "Item add failed"
+    scene.undo_manager.undo()
+    assert len(scene.items()) == init_count, "Undo add item failed"
+    scene.undo_manager.redo()
+    assert len(scene.items()) == init_count + 1, "Redo add item failed"
+    scene.undo_manager.undo()
+    print("[OK] Undo (Ctrl+Z) and Redo (Ctrl+Shift+Z) system verified")
+
     print("\n--- ALL TESTS PASSED SUCCESSFULLY! ---")
 
 

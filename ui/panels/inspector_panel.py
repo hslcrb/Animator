@@ -7,11 +7,54 @@ typography, and the crucial 'Create Outlines' vector path conversion.
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QGridLayout, QLabel, QLineEdit,
     QSpinBox, QDoubleSpinBox, QPushButton, QSlider, QComboBox, QColorDialog,
-    QGroupBox, QScrollArea, QFrame, QFontComboBox
+    QGroupBox, QScrollArea, QFrame, QFontComboBox, QStyledItemDelegate, QStyle
 )
-from PySide6.QtCore import Qt, Signal
+from PySide6.QtCore import Qt, Signal, QSize
 from PySide6.QtGui import QColor, QFont
 from ui.canvas.items import ResizableItem, TextItem, RectangleItem, EllipseItem, PathItem, ArtboardItem
+
+
+class FontPreviewDelegate(QStyledItemDelegate):
+    """Renders each font item using its own font family for WYSIWYG font preview."""
+    def paint(self, painter, option, index):
+        font_family = index.data(Qt.ItemDataRole.DisplayRole)
+        if not font_family:
+            super().paint(painter, option, index)
+            return
+
+        painter.save()
+        painter.setRenderHint(painter.RenderHint.Antialiasing)
+        painter.setRenderHint(painter.RenderHint.TextAntialiasing)
+
+        # Selection or alternating background
+        is_selected = bool(option.state & QStyle.StateFlag.State_Selected)
+        if is_selected:
+            painter.fillRect(option.rect, QColor("#0d99ff"))
+            text_color = QColor("#ffffff")
+            sample_color = QColor("#dbeafe")
+        else:
+            bg_color = QColor("#23232c") if (index.row() % 2 == 0) else QColor("#1c1c23")
+            painter.fillRect(option.rect, bg_color)
+            text_color = QColor("#f1f5f9")
+            sample_color = QColor("#64748b")
+
+        # Set font family directly
+        sample_font = QFont(font_family)
+        sample_font.setPointSize(12)
+        painter.setFont(sample_font)
+        painter.setPen(text_color)
+
+        rect = option.rect.adjusted(10, 0, -10, 0)
+        painter.drawText(rect, Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignLeft, font_family)
+
+        # Sample preview 'Aa 123'
+        painter.setPen(sample_color)
+        painter.drawText(rect, Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignRight, "Aa 가나다 123")
+
+        painter.restore()
+
+    def sizeHint(self, option, index):
+        return QSize(220, 32)
 
 
 class InspectorPanel(QWidget):
@@ -141,6 +184,8 @@ class InspectorPanel(QWidget):
 
         h_font = QHBoxLayout()
         self.combo_font = QFontComboBox()
+        self.combo_font.setItemDelegate(FontPreviewDelegate(self.combo_font))
+        self.combo_font.view().setMouseTracking(True)
         self.spin_font_size = QSpinBox()
         self.spin_font_size.setRange(6, 200)
         self.spin_font_size.setValue(28)
@@ -194,6 +239,7 @@ class InspectorPanel(QWidget):
         # Text
         self.txt_content.textChanged.connect(self._apply_text_content)
         self.combo_font.currentFontChanged.connect(self._apply_font)
+        self.combo_font.highlighted.connect(self._on_font_highlighted)
         self.spin_font_size.valueChanged.connect(self._apply_font)
         self.btn_bold.toggled.connect(self._apply_font)
         self.btn_italic.toggled.connect(self._apply_font)
@@ -248,8 +294,10 @@ class InspectorPanel(QWidget):
         self.gb_text.setVisible(is_text)
         if is_text:
             self.txt_content.setText(item.text)
-            self.combo_font.setCurrentFont(QFont(item.font_family))
-            self.spin_font_size.setValue(int(item.font_size))
+            safe_font = QFont(item.font_family)
+            safe_font.setPointSize(max(1, int(item.font_size)))
+            self.combo_font.setCurrentFont(safe_font)
+            self.spin_font_size.setValue(max(1, int(item.font_size)))
             self.btn_bold.setChecked(item.font_bold)
             self.btn_italic.setChecked(item.font_italic)
 
@@ -334,6 +382,17 @@ class InspectorPanel(QWidget):
         self.current_item.adjust_size_to_text()
         self.current_item.update()
 
+    def _on_font_highlighted(self, font_or_text):
+        if self._is_updating_ui or not isinstance(self.current_item, TextItem):
+            return
+        family = font_or_text if isinstance(font_or_text, str) else font_or_text.family()
+        if family:
+            self.current_item.font_family = family
+            self.current_item.adjust_size_to_text()
+            self.current_item.update()
+            self.scene.update()
+            self.scene.itemModified.emit(self.current_item)
+
     def _apply_font(self):
         if self._is_updating_ui or not isinstance(self.current_item, TextItem):
             return
@@ -343,6 +402,8 @@ class InspectorPanel(QWidget):
         self.current_item.font_italic = self.btn_italic.isChecked()
         self.current_item.adjust_size_to_text()
         self.current_item.update()
+        self.scene.update()
+        self.scene.itemModified.emit(self.current_item)
 
     def _on_create_outlines(self):
         """User clicked 'Create Outlines': converts Text to PathItem."""

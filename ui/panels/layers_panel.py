@@ -228,10 +228,14 @@ class LayersPanel(QWidget):
         self.refresh_layers()
 
     def _delete_selected_layer(self):
-        for it in list(self.scene.selectedItems()):
-            if not isinstance(it, ArtboardItem):
-                self.scene.removeItem(it)
-                self.scene.itemRemoved.emit(it)
+        selected = list(self.scene.selectedItems())
+        if hasattr(self.scene, "delete_items"):
+            self.scene.delete_items(selected)
+        else:
+            for it in selected:
+                if not isinstance(it, ArtboardItem):
+                    self.scene.removeItem(it)
+                    self.scene.itemRemoved.emit(it)
         self.refresh_layers()
 
     def _on_insert_component(self):

@@ -128,6 +128,7 @@ class ResizableItem(QGraphicsItem, CanvasItemBase):
             self._handle_alt_duplicate(event)
             return
 
+        self._press_transform = (self.x(), self.y(), self.w, self.h, self.rotation())
         if self.isSelected() and event.button() == Qt.MouseButton.LeftButton:
             self.active_handle = self._get_handle_at(event.pos())
             if self.active_handle is not None:
@@ -204,6 +205,12 @@ class ResizableItem(QGraphicsItem, CanvasItemBase):
     def mouseReleaseEvent(self, event: QGraphicsSceneMouseEvent):
         self.active_handle = None
         super().mouseReleaseEvent(event)
+        if hasattr(self, "_press_transform") and self._press_transform is not None:
+            new_trans = (self.x(), self.y(), self.w, self.h, self.rotation())
+            if new_trans != self._press_transform:
+                if self.scene() and hasattr(self.scene(), "record_transform"):
+                    self.scene().record_transform(self, self._press_transform, new_trans)
+            self._press_transform = None
 
     def paint_selection_frame(self, painter: QPainter):
         """Figma-style sleek selection bounds and handles."""
@@ -385,7 +392,8 @@ class TextItem(ResizableItem):
         self.update()
 
     def get_font(self) -> QFont:
-        font = QFont(self.font_family, int(self.font_size))
+        font = QFont(self.font_family)
+        font.setPointSizeF(max(1.0, float(self.font_size)))
         font.setBold(self.font_bold)
         font.setItalic(self.font_italic)
         return font

@@ -20,6 +20,7 @@ from ui.panels.inspector_panel import InspectorPanel
 from ui.panels.animation_panel import AnimationSidePanel
 from ui.panels.timeline_panel import TimelinePanel
 from ui.theme import DARK_THEME_QSS
+from core.undo_manager import UndoManager
 
 
 class MainWindow(QMainWindow):
@@ -32,8 +33,11 @@ class MainWindow(QMainWindow):
         # Apply dark theme
         self.setStyleSheet(DARK_THEME_QSS)
 
+        # Undo / Redo Manager
+        self.undo_manager = UndoManager()
+
         # Core Components
-        self.scene = CanvasScene(self)
+        self.scene = CanvasScene(self.undo_manager, self)
         self.view = CanvasView(self.scene, self)
 
         self._setup_ui()
@@ -132,6 +136,26 @@ class MainWindow(QMainWindow):
 
         toolbar.addSeparator()
 
+        # Undo / Redo Actions
+        self.btn_undo = QToolButton()
+        self.btn_undo.setText("↶ Undo")
+        self.btn_undo.setToolTip("Undo (Ctrl+Z)")
+        self.btn_undo.setEnabled(False)
+        self.btn_undo.clicked.connect(self.undo_manager.undo)
+        toolbar.addWidget(self.btn_undo)
+
+        self.btn_redo = QToolButton()
+        self.btn_redo.setText("↷ Redo")
+        self.btn_redo.setToolTip("Redo (Ctrl+Shift+Z)")
+        self.btn_redo.setEnabled(False)
+        self.btn_redo.clicked.connect(self.undo_manager.redo)
+        toolbar.addWidget(self.btn_redo)
+
+        self.undo_manager.canUndoChanged.connect(self.btn_undo.setEnabled)
+        self.undo_manager.canRedoChanged.connect(self.btn_redo.setEnabled)
+
+        toolbar.addSeparator()
+
         # Vector & Figma Actions
         self.btn_outline = QToolButton()
         self.btn_outline.setText("⚡ Create Outlines")
@@ -179,6 +203,11 @@ class MainWindow(QMainWindow):
         toolbar.addWidget(self.btn_reset_zoom)
 
     def _setup_shortcuts(self):
+        # Undo / Redo
+        QShortcut(QKeySequence("Ctrl+Z"), self, self.undo_manager.undo)
+        QShortcut(QKeySequence("Ctrl+Shift+Z"), self, self.undo_manager.redo)
+        QShortcut(QKeySequence("Ctrl+Y"), self, self.undo_manager.redo)
+
         # Tools
         QShortcut(QKeySequence(Qt.Key.Key_V), self, lambda: self._select_tool_by_id("select"))
         QShortcut(QKeySequence(Qt.Key.Key_R), self, lambda: self._select_tool_by_id("rect"))
