@@ -1,0 +1,3 @@
+"""
+Panels module for Animator
+"""
