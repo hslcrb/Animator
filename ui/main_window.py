@@ -21,6 +21,7 @@ from ui.panels.animation_panel import AnimationSidePanel
 from ui.panels.timeline_panel import TimelinePanel
 from ui.theme import DARK_THEME_QSS
 from core.undo_manager import UndoManager
+from ui.components.font_picker_dialog import FontPickerDialog
 
 
 class MainWindow(QMainWindow):
@@ -163,6 +164,12 @@ class MainWindow(QMainWindow):
         self.btn_outline.clicked.connect(self._create_outline_from_toolbar)
         toolbar.addWidget(self.btn_outline)
 
+        self.btn_font_modal = QToolButton()
+        self.btn_font_modal.setText("🔤 Font Picker")
+        self.btn_font_modal.setToolTip("Open full-featured Typography & Font Picker modal")
+        self.btn_font_modal.clicked.connect(self._open_font_picker_from_toolbar)
+        toolbar.addWidget(self.btn_font_modal)
+
         self.btn_comp = QToolButton()
         self.btn_comp.setText("❖ Component")
         self.btn_comp.setToolTip("Turn selected shape into reusable Component")
@@ -279,6 +286,28 @@ class MainWindow(QMainWindow):
                 self.status_bar.showMessage("Text converted to Vector Path Outlines!", 3000)
                 return
         QMessageBox.information(self, "Create Outlines", "Please select a Text item on the canvas to vectorize.")
+
+    def _open_font_picker_from_toolbar(self):
+        selected = self.scene.selectedItems()
+        target_text = None
+        for it in selected:
+            if isinstance(it, TextItem):
+                target_text = it
+                break
+        if not target_text:
+            for it in self.scene.items():
+                if isinstance(it, TextItem):
+                    target_text = it
+                    break
+        family = target_text.font_family if target_text else "Segoe UI"
+        dlg = FontPickerDialog(family, target_item=target_text, parent=self)
+        if dlg.exec() and target_text:
+            target_text.font_family = dlg.current_family
+            target_text.adjust_size_to_text()
+            target_text.update()
+            self.scene.update()
+            self.scene.itemModified.emit(target_text)
+            self.status_bar.showMessage(f"Font changed to '{dlg.current_family}'", 3000)
 
     def _create_component_from_toolbar(self):
         selected = self.scene.selectedItems()

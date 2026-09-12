@@ -13,6 +13,7 @@ from PySide6.QtGui import (
 )
 from PySide6.QtCore import Qt, QRectF, QPointF, Signal, QObject
 import uuid
+from core.font_utils import get_smart_font
 
 
 class SelectionHandle:
@@ -392,11 +393,13 @@ class TextItem(ResizableItem):
         self.update()
 
     def get_font(self) -> QFont:
-        font = QFont(self.font_family)
-        font.setPointSizeF(max(1.0, float(self.font_size)))
-        font.setBold(self.font_bold)
-        font.setItalic(self.font_italic)
-        return font
+        return get_smart_font(
+            self.font_family,
+            self.font_size,
+            self.font_bold,
+            self.font_italic,
+            self.text
+        )
 
     def get_displayed_text(self) -> str:
         """Calculate displayed characters based on typing progress (0.0 ~ 1.0)."""

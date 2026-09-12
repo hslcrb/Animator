@@ -6,7 +6,7 @@ Figma & Premiere-inspired modern dark theme.
 DARK_THEME_QSS = """
 * {
     font-family: 'Segoe UI', 'Inter', -apple-system, sans-serif;
-    font-size: 12px;
+    font-size: 10pt;
     color: #e2e8f0;
     outline: none;
 }

@@ -12,6 +12,7 @@ from PySide6.QtWidgets import (
 from PySide6.QtCore import Qt, Signal, QSize
 from PySide6.QtGui import QColor, QFont
 from ui.canvas.items import ResizableItem, TextItem, RectangleItem, EllipseItem, PathItem, ArtboardItem
+from ui.components.font_picker_dialog import FontPickerDialog
 
 
 class FontPreviewDelegate(QStyledItemDelegate):
@@ -189,8 +190,12 @@ class InspectorPanel(QWidget):
         self.spin_font_size = QSpinBox()
         self.spin_font_size.setRange(6, 200)
         self.spin_font_size.setValue(28)
-        h_font.addWidget(self.combo_font)
+        self.btn_open_font_picker = QPushButton("🔤 Modal")
+        self.btn_open_font_picker.setToolTip("Open full-featured Typography & Font Picker modal")
+        self.btn_open_font_picker.clicked.connect(self._open_font_picker_dialog)
+        h_font.addWidget(self.combo_font, 1)
         h_font.addWidget(self.spin_font_size)
+        h_font.addWidget(self.btn_open_font_picker)
         v_text.addLayout(h_font)
 
         h_style_btn = QHBoxLayout()
@@ -411,6 +416,18 @@ class InspectorPanel(QWidget):
             new_path_item = self.scene.create_outline_for_item(self.current_item)
             self.current_item = new_path_item
             self.populate_item_values(new_path_item)
+
+    def _open_font_picker_dialog(self):
+        if not isinstance(self.current_item, TextItem):
+            return
+        initial_font = self.current_item.font_family
+        dlg = FontPickerDialog(initial_font, target_item=self.current_item, parent=self)
+        if dlg.exec():
+            chosen = dlg.current_family
+            safe_font = QFont(chosen)
+            safe_font.setPointSize(max(1, int(self.current_item.font_size)))
+            self.combo_font.setCurrentFont(safe_font)
+            self._apply_font()
 
     def _on_make_component(self):
         if self.current_item:

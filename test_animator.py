@@ -84,6 +84,24 @@ def run_tests():
     scene.undo_manager.undo()
     print("[OK] Undo (Ctrl+Z) and Redo (Ctrl+Shift+Z) system verified")
 
+    # 7. Test Smart Font & Korean Fallback
+    from core.font_utils import contains_korean, get_smart_font, font_supports_korean
+    assert contains_korean("안녕하세요 Hello"), "Korean detection failed"
+    assert not contains_korean("Only English 123"), "False positive Korean detection"
+
+    # Test smart font fallback with English-only font + Korean text
+    smart_f = get_smart_font("Consolas", 24.0, text="타이핑 애니메이션")
+    families = smart_f.families()
+    assert len(families) > 1, "Fallback families not set"
+    assert any("Malgun" in f or "Gothic" in f or "Pretendard" in f or "Segoe" in f for f in families), "Korean fallback missing"
+    print(f"[OK] Smart Korean fallback font verified: {families[:3]}")
+
+    # 8. Test FontPickerDialog creation
+    from ui.components.font_picker_dialog import FontPickerDialog
+    dlg = FontPickerDialog("Consolas", target_item=text_item)
+    assert dlg.font_list.count() > 0, "Font list empty"
+    print(f"[OK] Font Picker Dialog verified with {dlg.font_list.count()} system fonts")
+
     print("\n--- ALL TESTS PASSED SUCCESSFULLY! ---")
 
 
